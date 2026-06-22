@@ -17,6 +17,9 @@ class DjangoPaddleMorSettings:
     timeout: float
     default_sync_limit: int
     maximum_time_drift: int
+    subscriber_model: str | None
+    subscriber_email_field: str
+    auto_link_subscriber: bool
 
 
 def _coerce_required_string(value: object, setting_name: str) -> str:
@@ -28,6 +31,16 @@ def _coerce_required_string(value: object, setting_name: str) -> str:
         raise ImproperlyConfigured(f"DJANGO_PADDLE_MOR['{setting_name}'] is required.")
 
     return normalized
+
+
+def _coerce_optional_string(value: object, setting_name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ImproperlyConfigured(f"DJANGO_PADDLE_MOR['{setting_name}'] must be a string.")
+
+    normalized = value.strip()
+    return normalized or None
 
 
 def _coerce_string_tuple(value: object, setting_name: str) -> tuple[str, ...]:
@@ -119,6 +132,18 @@ def get_django_paddle_mor_settings() -> DjangoPaddleMorSettings:
         raw_settings.get("MAXIMUM_TIME_DRIFT", 5),
         "MAXIMUM_TIME_DRIFT",
     )
+    subscriber_model = _coerce_optional_string(
+        raw_settings.get("SUBSCRIBER_MODEL"),
+        "SUBSCRIBER_MODEL",
+    )
+    subscriber_email_field = _coerce_required_string(
+        raw_settings.get("SUBSCRIBER_EMAIL_FIELD", "email"),
+        "SUBSCRIBER_EMAIL_FIELD",
+    )
+    auto_link_subscriber = _coerce_bool(
+        raw_settings.get("AUTO_LINK_SUBSCRIBER", False),
+        "AUTO_LINK_SUBSCRIBER",
+    )
 
     if default_sync_limit < 1:
         raise ImproperlyConfigured("DJANGO_PADDLE_MOR['DEFAULT_SYNC_LIMIT'] must be >= 1.")
@@ -140,6 +165,9 @@ def get_django_paddle_mor_settings() -> DjangoPaddleMorSettings:
         timeout=timeout,
         default_sync_limit=default_sync_limit,
         maximum_time_drift=maximum_time_drift,
+        subscriber_model=subscriber_model,
+        subscriber_email_field=subscriber_email_field,
+        auto_link_subscriber=auto_link_subscriber,
     )
 
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from paddle_billing.Client import Client
 from paddle_billing.Environment import Environment
 from paddle_billing.Notifications.Secret import Secret
@@ -45,16 +47,29 @@ class PaddleAPI:
     def portal(self) -> PortalHelpers:
         return PortalHelpers(self.client)
 
-    def verify_webhook(self, request, *, verify_time_drift: bool = True) -> bool:
+    def verify_webhook(
+        self,
+        request,
+        *,
+        verify_time_drift: bool = True,
+        secrets: Sequence[str] | str | None = None,
+    ) -> bool:
         package_settings = get_django_paddle_mor_settings()
-        if not package_settings.webhook_secrets:
+        if secrets is None:
+            verification_secrets = package_settings.webhook_secrets
+        elif isinstance(secrets, str):
+            verification_secrets = (secrets,)
+        else:
+            verification_secrets = tuple(secret for secret in secrets if secret)
+
+        if not verification_secrets:
             raise WebhookVerificationError(
                 "DJANGO_PADDLE_MOR['WEBHOOK_SECRETS'] must be configured "
                 "to verify webhook requests."
             )
 
         verifier = Verifier(package_settings.maximum_time_drift)
-        secrets = [Secret(secret) for secret in package_settings.webhook_secrets]
+        secrets = [Secret(secret) for secret in verification_secrets]
         try:
             return verifier.verify(request, secrets, verify_time_drift=verify_time_drift)
         except (ConnectionRefusedError, ValueError):

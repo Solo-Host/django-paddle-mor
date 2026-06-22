@@ -1,4 +1,4 @@
-from .events import WebhookEvent
+from .events import WebhookEndpoint, WebhookEvent
 from .resources import (
     EVENT_PREFIX_REGISTRY,
     RESOURCE_MODEL_REGISTRY,
@@ -51,5 +51,6 @@ __all__ = [
     "SimulationType",
     "Subscription",
     "Transaction",
+    "WebhookEndpoint",
     "WebhookEvent",
 ]

@@ -3,7 +3,15 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 
 from django_paddle_mor.exceptions import NonPersistedResourceError
-from django_paddle_mor.models import DiscountGroup, EventType, Product
+from django_paddle_mor.models import (
+    Customer,
+    DiscountGroup,
+    EventType,
+    Price,
+    Product,
+    Subscription,
+    Transaction,
+)
 from django_paddle_mor.sync import (
     ZERO_ARGUMENT_LIST_RESOURCE_NAMES,
     resource_name_for_event_type,
@@ -87,6 +95,187 @@ def test_event_type_sync_uses_name_as_stable_identifier():
 
     assert event_type.paddle_id == "transaction.paid"
     assert EventType.objects.filter(paddle_id="transaction.paid").exists()
+
+
+@pytest.mark.django_db
+def test_customer_sync_populates_typed_fields():
+    customer = sync_payload(
+        "customers",
+        {
+            "id": "cus_123",
+            "name": "Ada Lovelace",
+            "email": "ada@example.com",
+            "marketing_consent": True,
+            "locale": "en",
+            "status": "active",
+            "custom_data": {"team": "founders"},
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+
+    assert customer.email == "ada@example.com"
+    assert customer.marketing_consent is True
+    assert customer.locale == "en"
+    assert Customer.objects.get(paddle_id="cus_123").custom_data == {"team": "founders"}
+
+
+@pytest.mark.django_db
+def test_product_and_price_sync_populate_typed_fields_and_relations():
+    product = sync_payload(
+        "products",
+        {
+            "id": "pro_123",
+            "name": "Starter",
+            "description": "Starter plan",
+            "tax_category": "standard",
+            "image_url": "https://example.com/product.png",
+            "type": "standard",
+            "custom_data": {"tier": "starter"},
+            "status": "active",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+    price = sync_payload(
+        "prices",
+        {
+            "id": "pri_123",
+            "product_id": "pro_123",
+            "name": "Starter monthly",
+            "description": "Monthly starter price",
+            "type": "standard",
+            "tax_mode": "account_setting",
+            "billing_cycle": {"interval": "month", "frequency": 1},
+            "unit_price": {"amount": "1200", "currency_code": "USD"},
+            "quantity": {"minimum": 1, "maximum": 1},
+            "status": "active",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+
+    assert product.tax_category == "standard"
+    assert price.product == product
+    assert price.product_external_id == "pro_123"
+    assert price.unit_price_amount == "1200"
+    assert Price.objects.get(paddle_id="pri_123").unit_price_currency_code == "USD"
+
+
+@pytest.mark.django_db
+def test_parent_sync_backfills_out_of_order_child_relations():
+    price = sync_payload(
+        "prices",
+        {
+            "id": "pri_out_of_order",
+            "product_id": "pro_out_of_order",
+            "description": "Price before product",
+            "unit_price": {"amount": "1200", "currency_code": "USD"},
+            "quantity": {"minimum": 1, "maximum": 1},
+            "status": "active",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+    assert price.product is None
+
+    product = sync_payload(
+        "products",
+        {
+            "id": "pro_out_of_order",
+            "name": "Out of order product",
+            "tax_category": "standard",
+            "status": "active",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+
+    assert Price.objects.get(paddle_id="pri_out_of_order").product == product
+
+
+@pytest.mark.django_db
+def test_subscription_sync_links_to_customer_and_promotes_fields():
+    sync_payload(
+        "customers",
+        {
+            "id": "cus_123",
+            "email": "ada@example.com",
+            "marketing_consent": False,
+            "locale": "en",
+            "status": "active",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+    subscription = sync_payload(
+        "subscriptions",
+        {
+            "id": "sub_123",
+            "customer_id": "cus_123",
+            "address_id": "add_123",
+            "currency_code": "USD",
+            "collection_mode": "automatic",
+            "billing_cycle": {"interval": "month", "frequency": 1},
+            "current_billing_period": {"starts_at": "2026-01-01T00:00:00Z"},
+            "management_urls": {"update_payment_method": "https://example.com/manage"},
+            "items": [{"price_id": "pri_123"}],
+            "status": "active",
+            "started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-02T00:00:00Z",
+        },
+    )
+
+    assert subscription.customer.paddle_id == "cus_123"
+    assert subscription.currency_code == "USD"
+    assert subscription.collection_mode == "automatic"
+    assert Subscription.objects.get(paddle_id="sub_123").items == [{"price_id": "pri_123"}]
+
+
+@pytest.mark.django_db
+def test_transaction_sync_links_to_customer_and_subscription():
+    sync_payload(
+        "customers",
+        {
+            "id": "cus_123",
+            "email": "ada@example.com",
+            "marketing_consent": False,
+            "locale": "en",
+            "status": "active",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+    sync_payload(
+        "subscriptions",
+        {
+            "id": "sub_123",
+            "customer_id": "cus_123",
+            "address_id": "add_123",
+            "currency_code": "USD",
+            "collection_mode": "automatic",
+            "billing_cycle": {"interval": "month", "frequency": 1},
+            "items": [],
+            "status": "active",
+            "updated_at": "2026-01-02T00:00:00Z",
+        },
+    )
+
+    transaction = sync_payload(
+        "transactions",
+        {
+            "id": "txn_123",
+            "customer_id": "cus_123",
+            "subscription_id": "sub_123",
+            "currency_code": "USD",
+            "origin": "api",
+            "collection_mode": "automatic",
+            "details": {"line_items_subtotal": {"amount": "1200"}},
+            "items": [{"price_id": "pri_123"}],
+            "payments": [],
+            "checkout": {"url": "https://checkout.example/session"},
+            "status": "ready",
+            "updated_at": "2026-01-03T00:00:00Z",
+        },
+    )
+
+    assert transaction.customer.paddle_id == "cus_123"
+    assert transaction.subscription.paddle_id == "sub_123"
+    assert transaction.checkout_url == "https://checkout.example/session"
+    assert Transaction.objects.get(paddle_id="txn_123").origin == "api"
 
 
 def test_sync_all_resources_uses_only_zero_argument_list_resources(monkeypatch):

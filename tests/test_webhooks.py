@@ -39,6 +39,23 @@ def test_webhook_rejects_non_object_json_payloads(client, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_webhook_rejects_invalid_utf8_payloads(client, monkeypatch):
+    monkeypatch.setattr(
+        "django_paddle_mor.views.PaddleAPI.verify_webhook",
+        lambda self, request: True,
+    )
+
+    response = client.post(
+        reverse("django_paddle_mor:paddle_webhook"),
+        data=b"\xff",
+        content_type="application/json",
+        HTTP_PADDLE_SIGNATURE="ts=1;h1=test",
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
 def test_webhook_rejects_non_string_occurred_at_values(client, monkeypatch):
     monkeypatch.setattr(
         "django_paddle_mor.views.PaddleAPI.verify_webhook",
