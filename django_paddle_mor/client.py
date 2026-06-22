@@ -7,6 +7,7 @@ from paddle_billing.Notifications.Verifier import Verifier
 from paddle_billing.Options import Options
 
 from .exceptions import WebhookVerificationError
+from .helpers import CheckoutHelpers, PortalHelpers, SessionHelpers
 from .registry import resolve_resource_name
 from .settings import get_django_paddle_mor_settings
 
@@ -31,6 +32,18 @@ class PaddleAPI:
     def resource_client(self, resource_name: str):
         canonical_name = resolve_resource_name(resource_name)
         return getattr(self.client, canonical_name)
+
+    @property
+    def checkout(self) -> CheckoutHelpers:
+        return CheckoutHelpers(self.client)
+
+    @property
+    def sessions(self) -> SessionHelpers:
+        return SessionHelpers(self.client)
+
+    @property
+    def portal(self) -> PortalHelpers:
+        return PortalHelpers(self.client)
 
     def verify_webhook(self, request, *, verify_time_drift: bool = True) -> bool:
         package_settings = get_django_paddle_mor_settings()
