@@ -4,7 +4,9 @@
 
 This is a Django package that mirrors Paddle Billing resources into Django models, verifies webhooks, and syncs data. It's built for the official `paddle-python-sdk`, not Paddle Classic.
 
-**Setup:** Use `uv` for dependency management. Run `uv sync --extra dev` to install the local tooling set, then use `uv run ...` for commands.
+**Setup:** Use `uv` for dependency management. Run `uv sync --extra dev` to install the local tooling set, then use `uv run ...` for commands. This repository currently targets Python 3.13 only.
+
+`uv.lock` is committed. Update it when dependency metadata changes, and keep CI compatible with `uv sync --frozen --extra dev`.
 
 ## Build, Test, and Lint Commands
 
@@ -24,8 +26,9 @@ uv run tox
 
 # Run one environment explicitly
 uv run tox -e py313
-uv run tox -e ruff
+uv run tox -e lint
 uv run tox -e mypy
+uv run tox -e security
 
 # Run a single test file or test function through tox
 uv run tox -e py313 -- tests/test_webhooks.py
@@ -43,11 +46,15 @@ uv run ruff check django_paddle_mor tests
 
 # Run mypy with the repository config
 uv run mypy django_paddle_mor tests
+
+# Run security tooling directly
+uv run bandit -q -r django_paddle_mor -x django_paddle_mor/migrations
+uv run pip-audit
 ```
 
-`tox` is the canonical entry point for local and CI checks. The configured environments are `py311`,
-`py312`, `py313`, `ruff`, and `mypy`, and `skip_missing_interpreters = true` lets local machines run
-only the interpreters they have installed.
+`tox` is the canonical entry point for local and CI checks. The configured environments are `py313`,
+`lint`, `mypy`, and `security`, with optional `ruff`, `bandit`, and `pip-audit` aliases for focused
+runs.
 
 ## High-Level Architecture
 
@@ -88,7 +95,8 @@ only the interpreters they have installed.
 - `clear_paddle_webhook_events`: Clean up old webhook records
 
 **Automation** (`.github/workflows/`)
-- `ci.yml`: Runs tox-based PR validation against `main`
+- `ci.yml`: Uses a `detect-changes` gate, one shared `static-analysis` job, and named `lint`,
+  `type-check`, `security`, and `test` jobs so branch rulesets can require stable check names
 - `release.yml`: Opens a `release-bump/vX.Y.Z` PR from `workflow_dispatch`, then tags and creates a
   GitHub Release after that PR is merged
 
@@ -177,6 +185,12 @@ Use PEP 604 union syntax (`str | None` not `Optional[str]`) and `from __future__
 - `mypy` intentionally excludes Django migration files.
 - Imports from `django` and `paddle_billing` are treated as untyped dependencies; mypy still checks
   the package's internal typing and repository code.
+
+### Security Checks
+- `tox -e security` runs both Bandit and pip-audit.
+- Bandit scans `django_paddle_mor/` and excludes migrations to avoid migration-generated noise.
+- The CI `security` ruleset job reflects the result of the shared static-analysis run, so failures
+  for lint, typing, or security must be debugged from `static-analysis` first.
 
 ## Important Notes
 

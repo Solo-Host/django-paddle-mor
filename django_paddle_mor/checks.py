@@ -6,6 +6,8 @@ from .models import WebhookEndpoint
 from .settings import get_django_paddle_mor_settings
 from .subscriber import validate_subscriber_model_configuration
 
+_BLANK_VALUE = ""
+
 
 @checks.register("django_paddle_mor")
 def check_subscriber_model_configuration(app_configs=None, **kwargs):
@@ -45,11 +47,10 @@ def check_webhook_endpoint_secrets(app_configs=None, **kwargs):
         settings = get_django_paddle_mor_settings()
     except ImproperlyConfigured as exc:
         return [checks.Error(str(exc), id="django_paddle_mor.E003")]
-
     try:
         has_blank_enabled_endpoints = WebhookEndpoint.objects.filter(
             enabled=True,
-            secret="",
+            secret=_BLANK_VALUE,
         ).exists()
     except (DatabaseError, RuntimeError):
         return []

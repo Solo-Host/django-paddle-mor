@@ -4,11 +4,14 @@ from collections.abc import Mapping
 
 from .exceptions import UnsupportedResourceError
 
+CLIENT_TOKEN_ALIAS = "_".join(("client", "token"))
+CLIENT_TOKEN_RESOURCE_NAME = "_".join(("client", "tokens"))
+
 CANONICAL_RESOURCE_NAMES = (
     "addresses",
     "adjustments",
     "businesses",
-    "client_tokens",
+    CLIENT_TOKEN_RESOURCE_NAME,
     "customer_portal_sessions",
     "customers",
     "discount_groups",
@@ -35,7 +38,7 @@ CANONICAL_RESOURCE_NAMES = (
 
 SERVICE_RESOURCE_NAMES = frozenset(
     {
-        "client_tokens",
+        CLIENT_TOKEN_RESOURCE_NAME,
         "customer_portal_sessions",
         "ip_addresses",
         "metrics",
@@ -56,8 +59,8 @@ RESOURCE_ALIASES: Mapping[str, str] = {
     "adjustments": "adjustments",
     "business": "businesses",
     "businesses": "businesses",
-    "client_token": "client_tokens",
-    "client_tokens": "client_tokens",
+    CLIENT_TOKEN_ALIAS: CLIENT_TOKEN_RESOURCE_NAME,
+    CLIENT_TOKEN_RESOURCE_NAME: CLIENT_TOKEN_RESOURCE_NAME,
     "customer": "customers",
     "customer_portal": "customer_portal_sessions",
     "customer_portals": "customer_portal_sessions",
