@@ -12,11 +12,12 @@ from django.utils import timezone
 
 from django_paddle_mor.models import Customer, WebhookEndpoint, WebhookEvent
 from django_paddle_mor.sync import sync_payload
+from tests.paddle_test_support import MODERN_SANDBOX_API_KEY
 
 
 def _subscriber_settings(**overrides):
     settings = {
-        "API_KEY": "pdl_sandbox_test",
+        "API_KEY": MODERN_SANDBOX_API_KEY,
         "WEBHOOK_SECRETS": ["whsec_test"],
         "SANDBOX": True,
         "DEFAULT_SYNC_LIMIT": 25,
@@ -163,7 +164,7 @@ def test_system_checks_warn_when_auto_link_has_no_subscriber_model():
 @pytest.mark.django_db
 @override_settings(
     DJANGO_PADDLE_MOR={
-        "API_KEY": "pdl_sandbox_test",
+        "API_KEY": MODERN_SANDBOX_API_KEY,
         "WEBHOOK_SECRETS": [],
         "SANDBOX": True,
     }

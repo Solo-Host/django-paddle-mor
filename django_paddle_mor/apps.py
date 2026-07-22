@@ -15,8 +15,11 @@ class DjangoPaddleMorConfig(AppConfig):
     verbose_name = "Django Paddle MoR"
 
     def ready(self):
-        from . import checks  # noqa: F401
+        import django_paddle_mor.checks  # noqa: F401
 
+        from . import notifications
+
+        notifications.register_signal_handlers()
         setting_changed.connect(
             _handle_setting_changed,
             dispatch_uid="django_paddle_mor.handle_setting_changed",

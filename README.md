@@ -36,7 +36,7 @@ Configure package settings:
 
 ```python
 DJANGO_PADDLE_MOR = {
-    "API_KEY": "pdl_live_xxx",
+    "API_KEY": "pdl_live_apikey_<entity_id>_<secret_part_1>_<secret_part_2>",
     "WEBHOOK_SECRETS": ["pdl_ntfset_xxx"],
     "SANDBOX": False,
     "SUBSCRIBER_MODEL": "auth.User",
@@ -62,6 +62,52 @@ The package supports both a shared webhook URL and endpoint-specific webhook URL
 
 You can create `WebhookEndpoint` records in Django to track endpoint-specific secrets, livemode,
 and webhook delivery history.
+
+## API key permission validation and notifications
+
+You can validate Paddle API key permissions from webhook metadata and send opt-in email
+notifications when keys are created, updated, expiring, expired, revoked, exposed, or missing
+required permissions.
+
+Define the permissions your project expects using Paddle's exact permission strings:
+
+```python
+# myapp/paddle.py
+REQUIRED_PADDLE_PERMISSIONS = {
+    "customer.read",
+    "subscription.read",
+    "subscription.write",
+}
+```
+
+Then point `DJANGO_PADDLE_MOR` at the manifest and enable only the notifications you want:
+
+```python
+DJANGO_PADDLE_MOR = {
+    "API_KEY": "pdl_live_apikey_<entity_id>_<secret_part_1>_<secret_part_2>",
+    "WEBHOOK_SECRETS": ["pdl_ntfset_xxx"],
+    "PERMISSION_MANIFEST": "myapp.paddle.REQUIRED_PADDLE_PERMISSIONS",
+    "API_KEY_NOTIFICATION_RECIPIENTS": ["billing-alerts@example.com"],
+    "API_KEY_NOTIFICATIONS": {
+        "PERMISSION_MISMATCH": True,
+        "CREATED": True,
+        "UPDATED": True,
+        "EXPIRING": True,
+        "EXPIRED": True,
+        "REVOKED": True,
+        "EXPOSURE_CREATED": True,
+    },
+}
+```
+
+Important:
+
+- Subscribe your Paddle webhook destination to `api_key.*` events for this feature to work.
+- If you enable exposure alerts, also subscribe to `api_key_exposure.created`.
+- `api_key.created` and `api_key.updated` compare Paddle's webhook `permissions` array to your
+  manifest and email when they differ.
+- Each notification type is independently opt-in, so you can enable only the events your project
+  wants to monitor.
 
 ## Sync resources
 

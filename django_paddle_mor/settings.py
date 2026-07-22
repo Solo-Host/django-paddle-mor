@@ -1,10 +1,61 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 
 from django.conf import settings as django_settings
 from django.core.exceptions import ImproperlyConfigured
+
+API_KEY_NOTIFICATION_ALIASES: Mapping[str, str] = {
+    "created": "created",
+    "api_key_created": "created",
+    "updated": "updated",
+    "api_key_updated": "updated",
+    "expiring": "expiring",
+    "api_key_expiring": "expiring",
+    "expired": "expired",
+    "api_key_expired": "expired",
+    "revoked": "revoked",
+    "api_key_revoked": "revoked",
+    "exposure_created": "exposure_created",
+    "api_key_exposure_created": "exposure_created",
+    "permission_mismatch": "permission_mismatch",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class APIKeyNotificationSettings:
+    created: bool
+    updated: bool
+    expiring: bool
+    expired: bool
+    revoked: bool
+    exposure_created: bool
+    permission_mismatch: bool
+
+    def any_enabled(self) -> bool:
+        return any(
+            (
+                self.created,
+                self.updated,
+                self.expiring,
+                self.expired,
+                self.revoked,
+                self.exposure_created,
+                self.permission_mismatch,
+            )
+        )
+
+    def enabled_for_event(self, event_type: str) -> bool:
+        return {
+            "api_key.created": self.created,
+            "api_key.updated": self.updated,
+            "api_key.expiring": self.expiring,
+            "api_key.expired": self.expired,
+            "api_key.revoked": self.revoked,
+            "api_key_exposure.created": self.exposure_created,
+        }.get(event_type, False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +71,9 @@ class DjangoPaddleMorSettings:
     subscriber_model: str | None
     subscriber_email_field: str
     auto_link_subscriber: bool
+    permission_manifest: str | tuple[str, ...] | None
+    api_key_notification_recipients: tuple[str, ...]
+    api_key_notifications: APIKeyNotificationSettings
 
 
 def _coerce_required_string(value: object, setting_name: str) -> str:
@@ -70,6 +124,86 @@ def _coerce_string_tuple(value: object, setting_name: str) -> tuple[str, ...]:
     raise ImproperlyConfigured(
         f"DJANGO_PADDLE_MOR['{setting_name}'] must be a string or sequence of strings."
     )
+
+
+def _coerce_permission_manifest(
+    value: object,
+    setting_name: str,
+) -> str | tuple[str, ...] | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            raise ImproperlyConfigured(f"DJANGO_PADDLE_MOR['{setting_name}'] is required.")
+        return normalized
+    if isinstance(value, (list, tuple, set, frozenset)):
+        normalized_items = []
+        for item in value:
+            if not isinstance(item, str):
+                raise ImproperlyConfigured(
+                    f"DJANGO_PADDLE_MOR['{setting_name}'] entries must be strings."
+                )
+            normalized = item.strip()
+            if not normalized:
+                raise ImproperlyConfigured(
+                    f"DJANGO_PADDLE_MOR['{setting_name}'] entries must be non-empty strings."
+                )
+            normalized_items.append(normalized)
+        return tuple(normalized_items)
+    raise ImproperlyConfigured(
+        f"DJANGO_PADDLE_MOR['{setting_name}'] must be a dotted import path string "
+        "or sequence of strings."
+    )
+
+
+def _normalize_nested_setting_key(value: str) -> str:
+    return value.strip().lower().replace("-", "_").replace(".", "_").replace(" ", "_")
+
+
+def _coerce_api_key_notifications(
+    value: object,
+    setting_name: str,
+) -> APIKeyNotificationSettings:
+    if value in (None, ""):
+        return APIKeyNotificationSettings(
+            created=False,
+            updated=False,
+            expiring=False,
+            expired=False,
+            revoked=False,
+            exposure_created=False,
+            permission_mismatch=False,
+        )
+    if not isinstance(value, Mapping):
+        raise ImproperlyConfigured(f"DJANGO_PADDLE_MOR['{setting_name}'] must be a dictionary.")
+
+    flags = {
+        "created": False,
+        "updated": False,
+        "expiring": False,
+        "expired": False,
+        "revoked": False,
+        "exposure_created": False,
+        "permission_mismatch": False,
+    }
+    supported = ", ".join(sorted(API_KEY_NOTIFICATION_ALIASES))
+    for raw_key, raw_value in value.items():
+        if not isinstance(raw_key, str):
+            raise ImproperlyConfigured(
+                f"DJANGO_PADDLE_MOR['{setting_name}'] keys must be strings."
+            )
+        normalized_key = _normalize_nested_setting_key(raw_key)
+        try:
+            flag_name = API_KEY_NOTIFICATION_ALIASES[normalized_key]
+        except KeyError as exc:
+            raise ImproperlyConfigured(
+                f"Unsupported DJANGO_PADDLE_MOR['{setting_name}'] key '{raw_key}'. "
+                f"Supported values: {supported}."
+            ) from exc
+        flags[flag_name] = _coerce_bool(raw_value, f"{setting_name}.{raw_key}")
+
+    return APIKeyNotificationSettings(**flags)
 
 
 def _coerce_bool(value: object, setting_name: str) -> bool:
@@ -144,6 +278,18 @@ def get_django_paddle_mor_settings() -> DjangoPaddleMorSettings:
         raw_settings.get("AUTO_LINK_SUBSCRIBER", False),
         "AUTO_LINK_SUBSCRIBER",
     )
+    permission_manifest = _coerce_permission_manifest(
+        raw_settings.get("PERMISSION_MANIFEST"),
+        "PERMISSION_MANIFEST",
+    )
+    api_key_notification_recipients = _coerce_string_tuple(
+        raw_settings.get("API_KEY_NOTIFICATION_RECIPIENTS"),
+        "API_KEY_NOTIFICATION_RECIPIENTS",
+    )
+    api_key_notifications = _coerce_api_key_notifications(
+        raw_settings.get("API_KEY_NOTIFICATIONS"),
+        "API_KEY_NOTIFICATIONS",
+    )
 
     if default_sync_limit < 1:
         raise ImproperlyConfigured("DJANGO_PADDLE_MOR['DEFAULT_SYNC_LIMIT'] must be >= 1.")
@@ -155,6 +301,16 @@ def get_django_paddle_mor_settings() -> DjangoPaddleMorSettings:
         raise ImproperlyConfigured("DJANGO_PADDLE_MOR['TIMEOUT'] must be > 0.")
     if maximum_time_drift < 0:
         raise ImproperlyConfigured("DJANGO_PADDLE_MOR['MAXIMUM_TIME_DRIFT'] must be >= 0.")
+    if api_key_notifications.any_enabled() and not api_key_notification_recipients:
+        raise ImproperlyConfigured(
+            "DJANGO_PADDLE_MOR['API_KEY_NOTIFICATION_RECIPIENTS'] is required "
+            "when API_KEY_NOTIFICATIONS are enabled."
+        )
+    if api_key_notifications.permission_mismatch and permission_manifest is None:
+        raise ImproperlyConfigured(
+            "DJANGO_PADDLE_MOR['PERMISSION_MANIFEST'] is required when "
+            "API_KEY_NOTIFICATIONS['PERMISSION_MISMATCH'] is enabled."
+        )
 
     return DjangoPaddleMorSettings(
         api_key=api_key,
@@ -168,6 +324,9 @@ def get_django_paddle_mor_settings() -> DjangoPaddleMorSettings:
         subscriber_model=subscriber_model,
         subscriber_email_field=subscriber_email_field,
         auto_link_subscriber=auto_link_subscriber,
+        permission_manifest=permission_manifest,
+        api_key_notification_recipients=api_key_notification_recipients,
+        api_key_notifications=api_key_notifications,
     )
 
 
