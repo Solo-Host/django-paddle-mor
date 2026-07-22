@@ -224,8 +224,21 @@ def _coerce_bool(value: object, setting_name: str) -> bool:
 
 
 def _coerce_int(value: object, setting_name: str) -> int:
-    try:
+    if isinstance(value, bool):
         return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ImproperlyConfigured(
+                f"DJANGO_PADDLE_MOR['{setting_name}'] must be an integer."
+            ) from exc
+    try:
+        return int(str(value))
     except (TypeError, ValueError) as exc:
         raise ImproperlyConfigured(
             f"DJANGO_PADDLE_MOR['{setting_name}'] must be an integer."
@@ -233,8 +246,19 @@ def _coerce_int(value: object, setting_name: str) -> int:
 
 
 def _coerce_float(value: object, setting_name: str) -> float:
-    try:
+    if isinstance(value, bool):
         return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError as exc:
+            raise ImproperlyConfigured(
+                f"DJANGO_PADDLE_MOR['{setting_name}'] must be a number."
+            ) from exc
+    try:
+        return float(str(value))
     except (TypeError, ValueError) as exc:
         raise ImproperlyConfigured(
             f"DJANGO_PADDLE_MOR['{setting_name}'] must be a number."

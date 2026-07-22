@@ -64,7 +64,7 @@ def _serialize_sdk_value(value: Any):
         return {str(key): _serialize_sdk_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):
         return [_serialize_sdk_value(item) for item in value]
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return _serialize_sdk_value(asdict(value))
     if hasattr(value, "__dict__"):
         serializable = {

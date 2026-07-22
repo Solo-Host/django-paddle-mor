@@ -18,6 +18,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
@@ -27,9 +28,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "build>=1.2",
+  "mypy>=1.11",
   "pytest>=8.0",
   "pytest-django>=4.8",
   "ruff>=0.6",
+  "tox>=4.28",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -49,3 +53,13 @@ select = ["B", "E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "django_paddle_mor/migrations/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+exclude = ["^django_paddle_mor/migrations/"]
+show_error_codes = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["django", "django.*", "paddle_billing", "paddle_billing.*"]
+ignore_missing_imports = true

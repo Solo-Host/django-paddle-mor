@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.tox_env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            tox_env: py311
+          - python-version: "3.12"
+            tox_env: py312
+          - python-version: "3.13"
+            tox_env: py313
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install tox
+        run: python -m pip install --upgrade pip "tox>=4.28"
+
+      - name: Run ${{ matrix.tox_env }}
+        run: tox -e ${{ matrix.tox_env }}
+
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install tox
+        run: python -m pip install --upgrade pip "tox>=4.28"
+
+      - name: Run Ruff and mypy
+        run: tox -e ruff,mypy

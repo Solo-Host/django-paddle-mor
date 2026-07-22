@@ -42,14 +42,11 @@ def _coerce_permission_sequence(
 ) -> tuple[str, ...]:
     if isinstance(value, (str, bytes)) or isinstance(value, dict):
         raise ImproperlyConfigured(f"{context_name} must be a sequence of strings.")
-
-    try:
-        iterator = iter(value)  # type: ignore[arg-type]
-    except TypeError as exc:
-        raise ImproperlyConfigured(f"{context_name} must be a sequence of strings.") from exc
+    if not isinstance(value, Iterable):
+        raise ImproperlyConfigured(f"{context_name} must be a sequence of strings.")
 
     permissions = set()
-    for item in iterator:
+    for item in value:
         if not isinstance(item, str):
             raise ImproperlyConfigured(f"{context_name} entries must be strings.")
         normalized = item.strip()
