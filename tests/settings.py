@@ -1,3 +1,5 @@
+from tests.paddle_test_support import MODERN_SANDBOX_API_KEY
+
 SECRET_KEY = "tests-only-secret-key"
 USE_TZ = True
 TIME_ZONE = "UTC"
@@ -18,7 +20,7 @@ DATABASES = {
 }
 
 DJANGO_PADDLE_MOR = {
-    "API_KEY": "pdl_sandbox_test",
+    "API_KEY": MODERN_SANDBOX_API_KEY,
     "WEBHOOK_SECRETS": ["whsec_test"],
     "SANDBOX": True,
     "DEFAULT_SYNC_LIMIT": 25,
