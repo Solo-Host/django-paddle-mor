@@ -1,6 +1,6 @@
 # django-paddle-mor
 
-`django-paddle-mor` is a Django app inspired by `dj-stripe`, but built for Paddle Billing.
+`django-paddle-mor` (Django Paddle Merchant of Record) is a Django app inspired by `dj-stripe`, but built for Paddle Billing.
 It mirrors Paddle resources into Django models, verifies and ingests webhooks, and exposes
 sync commands backed by the official `paddle-python-sdk`.
 
