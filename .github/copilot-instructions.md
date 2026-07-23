@@ -99,6 +99,8 @@ runs.
   `type-check`, `security`, and `test` jobs so branch rulesets can require stable check names
 - `release.yml`: Opens a `release-bump/vX.Y.Z` PR from `workflow_dispatch`, then tags and creates a
   GitHub Release after that PR is merged
+- `release.yml` needs `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` so the workflow can open and
+  auto-merge release PRs with a GitHub App token instead of the default `GITHUB_TOKEN`
 
 ### Feature Modules
 
@@ -173,6 +175,8 @@ Use PEP 604 union syntax (`str | None` not `Optional[str]`) and `from __future__
 - Normal feature work should not bump the version manually.
 - Releases go through the `release.yml` workflow, which creates a `release-bump/vX.Y.Z` branch and
   PR, bumps only `pyproject.toml`, and creates the tag and GitHub Release after merge.
+- The release PR creation path uses `actions/create-github-app-token@v3`; if manual releases fail
+  with PR creation permission errors, check `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` first.
 
 ### Test Structure
 - Pytest + pytest-django
