@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-paddle-mor"
-version = "0.1.0"
+version = "0.1.1"
 description = "Django + Paddle Billing made easy"
 readme = "README.md"
 requires-python = ">=3.13"
