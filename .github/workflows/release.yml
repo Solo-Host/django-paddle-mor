@@ -60,8 +60,33 @@ jobs:
           set -euo pipefail
 
           CURRENT="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          PACKAGE_CURRENT="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' django_paddle_mor/__init__.py)"
+          LOCK_CURRENT="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("uv.lock").read_text()
+          match = re.search(
+              r'\[\[package\]\]\nname = "django-paddle-mor"\nversion = "([^"]+)"\nsource = \{ editable = "\." \}',
+              text,
+          )
+          print(match.group(1) if match else "")
+          PY
+          )"
           if [ -z "${CURRENT}" ] || ! echo "${CURRENT}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::Could not read a valid version from pyproject.toml (got '${CURRENT}')"
+            exit 1
+          fi
+          if [ -z "${PACKAGE_CURRENT}" ] || ! echo "${PACKAGE_CURRENT}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a valid version from django_paddle_mor/__init__.py (got '${PACKAGE_CURRENT}')"
+            exit 1
+          fi
+          if [ -z "${LOCK_CURRENT}" ] || ! echo "${LOCK_CURRENT}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a valid version from uv.lock (got '${LOCK_CURRENT}')"
+            exit 1
+          fi
+          if [ "${CURRENT}" != "${PACKAGE_CURRENT}" ] || [ "${CURRENT}" != "${LOCK_CURRENT}" ]; then
+            echo "::error::Version drift detected on main: pyproject.toml=${CURRENT}, django_paddle_mor/__init__.py=${PACKAGE_CURRENT}, uv.lock=${LOCK_CURRENT}"
             exit 1
           fi
 
@@ -155,7 +180,47 @@ jobs:
 
           git checkout -b "${BRANCH}"
           sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
-          git add pyproject.toml
+          sed -i "s/^__version__ = \".*\"/__version__ = \"${VERSION}\"/" django_paddle_mor/__init__.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          import sys
+
+          version = os.environ["VERSION"]
+          path = Path("uv.lock")
+          text = path.read_text()
+          updated, count = re.subn(
+              r'(\[\[package\]\]\nname = "django-paddle-mor"\nversion = )"[^"]+"(\nsource = \{ editable = "\." \})',
+              lambda match: f'{match.group(1)}"{version}"{match.group(2)}',
+              text,
+              count=1,
+          )
+          if count != 1:
+              print("::error::Could not update django-paddle-mor version in uv.lock")
+              sys.exit(1)
+          path.write_text(updated)
+          PY
+
+          PACKAGE_CURRENT="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' django_paddle_mor/__init__.py)"
+          LOCK_CURRENT="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("uv.lock").read_text()
+          match = re.search(
+              r'\[\[package\]\]\nname = "django-paddle-mor"\nversion = "([^"]+)"\nsource = \{ editable = "\." \}',
+              text,
+          )
+          print(match.group(1) if match else "")
+          PY
+          )"
+          if [ "${PACKAGE_CURRENT}" != "${VERSION}" ] || [ "${LOCK_CURRENT}" != "${VERSION}" ]; then
+            echo "::error::Failed to update release version metadata to ${VERSION}"
+            exit 1
+          fi
+
+          git add pyproject.toml django_paddle_mor/__init__.py uv.lock
 
           if git diff --cached --quiet; then
             echo "::error::Version ${VERSION} is already present on main; refusing to create an empty release PR"
@@ -294,13 +359,34 @@ jobs:
           set -euo pipefail
 
           CURRENT="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          PACKAGE_CURRENT="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' django_paddle_mor/__init__.py)"
+          LOCK_CURRENT="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("uv.lock").read_text()
+          match = re.search(
+              r'\[\[package\]\]\nname = "django-paddle-mor"\nversion = "([^"]+)"\nsource = \{ editable = "\." \}',
+              text,
+          )
+          print(match.group(1) if match else "")
+          PY
+          )"
           if [ -z "${CURRENT}" ] || ! echo "${CURRENT}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::Could not read a valid version from pyproject.toml (got '${CURRENT}')"
             exit 1
           fi
+          if [ -z "${PACKAGE_CURRENT}" ] || ! echo "${PACKAGE_CURRENT}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a valid version from django_paddle_mor/__init__.py (got '${PACKAGE_CURRENT}')"
+            exit 1
+          fi
+          if [ -z "${LOCK_CURRENT}" ] || ! echo "${LOCK_CURRENT}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a valid version from uv.lock (got '${LOCK_CURRENT}')"
+            exit 1
+          fi
 
-          if [ "${CURRENT}" != "${VERSION}" ]; then
-            echo "::error::pyproject.toml version ${CURRENT} does not match release branch version ${VERSION}"
+          if [ "${CURRENT}" != "${VERSION}" ] || [ "${PACKAGE_CURRENT}" != "${VERSION}" ] || [ "${LOCK_CURRENT}" != "${VERSION}" ]; then
+            echo "::error::Release version mismatch: pyproject.toml=${CURRENT}, django_paddle_mor/__init__.py=${PACKAGE_CURRENT}, uv.lock=${LOCK_CURRENT}, expected=${VERSION}"
             exit 1
           fi
 
