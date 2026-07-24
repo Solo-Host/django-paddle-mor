@@ -171,10 +171,13 @@ Use PEP 604 union syntax (`str | None` not `Optional[str]`) and `from __future__
 - Imports organized with Ruff: future imports first, then stdlib, then third-party, then local
 
 ### Versioning and Release Flow
-- `pyproject.toml` is the single source of truth for the package version.
+- `pyproject.toml` drives release version selection, and
+  `django_paddle_mor/__init__.py` plus the editable package metadata in
+  `uv.lock` must stay aligned with that version.
 - Normal feature work should not bump the version manually.
 - Releases go through the `release.yml` workflow, which creates a `release-bump/vX.Y.Z` branch and
-  PR, bumps only `pyproject.toml`, and creates the tag and GitHub Release after merge.
+  PR, updates `pyproject.toml`, `django_paddle_mor/__init__.py`, and `uv.lock`,
+  and creates the tag and GitHub Release after merge.
 - The release PR creation path uses `actions/create-github-app-token@v3`; if manual releases fail
   with PR creation permission errors, check `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` first.
 
