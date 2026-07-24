@@ -178,6 +178,29 @@ Use PEP 604 union syntax (`str | None` not `Optional[str]`) and `from __future__
 - The release PR creation path uses `actions/create-github-app-token@v3`; if manual releases fail
   with PR creation permission errors, check `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` first.
 
+## Git Workflow
+
+### Using Worktrees
+- Create branch worktrees under the sibling `../worktrees/` directory (full path:
+  `/home/bjorn/workspace/web_projects/pkgs/worktrees/`).
+- Do not work directly on `main`; create a branch worktree first:
+  ```bash
+  git worktree add ../worktrees/django-paddle-mor-my-change -b my-change main
+  cd ../worktrees/django-paddle-mor-my-change
+  ```
+- Commit and push from that worktree branch as usual.
+- After the branch has been pushed and you no longer need the local checkout, or
+  after the related PR/release has been published, remove the worktree and then
+  delete the local branch:
+  ```bash
+  cd /home/bjorn/workspace/web_projects/pkgs/django-paddle-mor
+  git worktree remove ../worktrees/django-paddle-mor-my-change
+  git branch -d my-change
+  ```
+- If the worktree has uncommitted local-only files, clean or intentionally
+  discard them before removing the worktree. Use `git worktree remove --force`
+  only when you mean to throw that local state away.
+
 ### Test Structure
 - Pytest + pytest-django
 - Test settings in `tests/settings.py`
