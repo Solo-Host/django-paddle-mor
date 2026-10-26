@@ -360,7 +360,7 @@ class Transaction(AbstractPaddleResource):
     business_external_id = models.CharField(max_length=128, blank=True)
     discount_external_id = models.CharField(max_length=128, blank=True)
     currency_code = models.CharField(max_length=8, blank=True)
-    origin = models.CharField(max_length=32, blank=True)
+    origin = models.CharField(max_length=64, blank=True)
     collection_mode = models.CharField(max_length=32, blank=True)
     invoice_id = models.CharField(max_length=128, blank=True)
     invoice_number = models.CharField(max_length=128, blank=True)
