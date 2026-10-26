@@ -278,6 +278,25 @@ def test_transaction_sync_links_to_customer_and_subscription():
     assert Transaction.objects.get(paddle_id="txn_123").origin == "api"
 
 
+@pytest.mark.django_db
+def test_transaction_sync_preserves_payment_method_change_origin() -> None:
+    transaction = sync_payload(
+        "transactions",
+        {
+            "id": "txn_payment_method_change",
+            "origin": "subscription_payment_method_change",
+            "status": "draft",
+        },
+    )
+
+    transaction.full_clean()
+
+    assert (
+        Transaction.objects.get(paddle_id="txn_payment_method_change").origin
+        == "subscription_payment_method_change"
+    )
+
+
 def test_sync_all_resources_uses_only_zero_argument_list_resources(monkeypatch):
     seen_resources = []
 
