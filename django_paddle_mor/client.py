@@ -69,8 +69,8 @@ class PaddleAPI:
             )
 
         verifier = Verifier(package_settings.maximum_time_drift)
-        secrets = [Secret(secret) for secret in verification_secrets]
+        secret_objects = [Secret(secret) for secret in verification_secrets]
         try:
-            return verifier.verify(request, secrets, verify_time_drift=verify_time_drift)
+            return verifier.verify(request, secret_objects, verify_time_drift=verify_time_drift)
         except (ConnectionRefusedError, ValueError):
             return False
